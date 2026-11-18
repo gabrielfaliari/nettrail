@@ -75,6 +75,7 @@ const UI = {
   pr_subnet: ['Treino de subnetting', 'Subnetting drill'], pr_subnetD: ['Questões geradas na hora: máscaras, hosts, redes e binário. Infinito!', 'Freshly generated questions: masks, hosts, networks and binary. Endless!'],
   pr_ports: ['Portas e protocolos', 'Ports & protocols'], pr_portsD: ['Decore as portas mais cobradas.', 'Memorize the most common ports.'],
   pr_vocab: ['Vocabulário PT ↔ EN', 'Vocabulary PT ↔ EN'], pr_vocabD: ['Termos técnicos em português e inglês.', 'Technical terms in Portuguese and English.'],
+  pr_bintable: ['Tabela binária', 'Binary table'], pr_bintableD: ['Abra a tabela de potências de 2 (2048 … 1) e preencha com 0 e 1 para converter números.', 'Open the powers-of-2 table (2048 … 1) and fill in 0s and 1s to convert numbers.'],
   pr_cmd: ['Comandos', 'Commands'], pr_cmdD: ['ping, ipconfig, tracert, show... digite os comandos.', 'ping, ipconfig, tracert, show... type the commands.'],
   noMistakes: ['Nenhum erro para revisar. Continue assim!', 'No mistakes to review. Keep it up!'],
   pending: ['pendentes', 'pending'], exportText: ['Copie este código e cole em "Importar" no outro aparelho (ou baixe o arquivo).', 'Copy this code and paste it into "Import" on the other device (or download the file).'],
@@ -338,7 +339,7 @@ function viewPractice() {
   const nm = Object.keys(S.mistakes).filter(k => QIDX[k]).length;
   const cards = [
     ['mistakes', '🔁', nm ? `${nm} ${u('pending')}` : ''],
-    ['random', '🎲', ''], ['subnet', '🧮', ''], ['ports', '🚪', ''], ['cmd', '⌨️', ''], ['vocab', '🗣️', '']
+    ['random', '🎲', ''], ['subnet', '🧮', ''], ['bintable', '🔢', ''], ['ports', '🚪', ''], ['cmd', '⌨️', ''], ['vocab', '🗣️', '']
   ];
   return `<h2 class="page-title">${u('practice')}</h2>
   <div class="grid-cards">${cards.map(([k, ic, extra]) => `
@@ -519,6 +520,7 @@ function startJump(i) {
   begin({ mode: 'jump', unit: i, qs: shuffle(src).slice(0, 10), color: UNITS[i].color });
 }
 function startPractice(kind) {
+  if (kind === 'bintable') return modal(`<h3>🔢 ${u('pr_bintable')}</h3><div class="bintool" id="bintoolM"></div><div class="mbtns"><button class="btn primary wide" data-close>OK</button></div>`, m => { m.classList.add('wide-m'); binTool($('#bintoolM', m)); });
   let qs = [];
   const open = UNITS.filter((_, i) => unitUnlocked(i));
   if (kind === 'mistakes') {
@@ -554,6 +556,7 @@ function renderQ() {
       <h2 class="l-q">${fmtQ(T(q.q))}</h2>
       ${S.hint && TO(q.q) ? `<div class="l-alt">${esc(TO(q.q))}</div>` : ''}
       <div class="l-area" id="area"></div>
+      ${q.sub ? '<div class="bintool" id="bintool"></div>' : ''}
     </div>
     <div class="l-foot" id="foot"><div class="foot-in"><div class="fb" id="fb"></div><button class="btn primary big" id="chk" disabled>${u('check')}</button></div></div>
   </div>`;
@@ -561,6 +564,51 @@ function renderQ() {
     m => $('#q', m).onclick = () => { closeModal(); endOverlay(); });
   $('#chk').onclick = () => L.checked ? next() : check();
   ({ mc: rMc, tf: rTf, order: rOrder, match: rMatch, fill: rFill })[q.t](q, $('#area'));
+  if (q.sub) {
+    const wantsBits = q.t === 'fill' && /^[01]{8}$/.test(q.a[0]);
+    binTool($('#bintool'), {
+      collapsible: true,
+      onUse: q.t === 'fill' ? row => {
+        const inp = $('#fill'); if (!inp || L.checked) return;
+        inp.value = wantsBits ? row.bits8 : String(row.sum); inp.dispatchEvent(new Event('input')); inp.focus();
+      } : null
+    });
+  }
+}
+
+/* ---------- tabela binária (2^11 ... 2^0) ---------- */
+const BIN_COLS = 12, BIN_ROWS = 4;
+const SUP = n => String(n).split('').map(d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]).join('');
+function binTool(el, opts = {}) {
+  if (!el) return;
+  const rows = Array.from({ length: BIN_ROWS }, () => Array(BIN_COLS).fill(''));
+  const pw = j => 2 ** (BIN_COLS - 1 - j);
+  const rowInfo = r => {
+    const sum = r.reduce((s, v, j) => s + (v === '1' ? pw(j) : 0), 0);
+    const all = r.map(v => v === '1' ? '1' : '0').join('');
+    const bits8 = sum < 256 ? all.slice(-8) : all.replace(/^0+/, '');
+    return { sum, bits8 };
+  };
+  const open = () => !opts.collapsible || S.binOpen;
+  let firstOpen = true;
+  const draw = () => {
+    const prevScroll = $('.bt-wrap', el) ? $('.bt-wrap', el).scrollLeft : null;
+    const hint = S.lang === 'pt' ? 'Toque numa casa: vazio → 1 → 0. A soma aparece à direita. As 8 últimas colunas formam um octeto.' : 'Tap a cell: empty → 1 → 0. The sum shows on the right. The last 8 columns form one octet.';
+    el.innerHTML = `${opts.collapsible ? `<button class="btn sm ghost bt-toggle" id="btT">🧮 ${S.lang === 'pt' ? (open() ? 'Esconder tabela binária' : 'Abrir tabela binária') : (open() ? 'Hide binary table' : 'Open binary table')}</button>` : ''}
+    ${open() ? `<div class="bt-wrap"><table class="bt">
+      <thead><tr>${Array.from({ length: BIN_COLS }, (_, j) => `<th class="${j >= BIN_COLS - 8 ? 'oct' : ''}"><small>2${SUP(BIN_COLS - 1 - j)}</small><b>${pw(j)}</b></th>`).join('')}<th class="sum-h">=</th>${opts.onUse ? '<th></th>' : ''}</tr></thead>
+      <tbody>${rows.map((r, i) => { const inf = rowInfo(r); return `<tr>${r.map((v, j) => `<td class="${j >= BIN_COLS - 8 ? 'oct' : ''}"><button class="bc ${v === '1' ? 'one' : v === '0' ? 'zero' : ''}" data-r="${i}" data-c="${j}" aria-label="${pw(j)}">${v}</button></td>`).join('')}<td class="sum">${inf.sum || ''}</td>${opts.onUse ? `<td><button class="bt-use" data-use="${i}" ${inf.sum || r.some(v => v) ? '' : 'disabled'} title="${S.lang === 'pt' ? 'Usar na resposta' : 'Use as answer'}">↵</button></td>` : ''}</tr>`; }).join('')}</tbody>
+    </table></div>
+    <div class="bt-foot"><small>${hint}</small><button class="btn sm ghost" id="btClr">${S.lang === 'pt' ? 'Limpar' : 'Clear'}</button></div>` : ''}`;
+    const wrap = $('.bt-wrap', el);
+    if (wrap) { if (prevScroll != null && !firstOpen) wrap.scrollLeft = prevScroll; else { wrap.scrollLeft = wrap.scrollWidth; firstOpen = false; } }
+    else firstOpen = true;
+    const t = $('#btT', el); if (t) t.onclick = () => { S.binOpen = !S.binOpen; save(); draw(); };
+    $$('.bc', el).forEach(b => b.onclick = () => { const r = rows[+b.dataset.r], c = +b.dataset.c; r[c] = r[c] === '' ? '1' : r[c] === '1' ? '0' : ''; sfx('tap'); draw(); });
+    $$('[data-use]', el).forEach(b => b.onclick = () => opts.onUse(rowInfo(rows[+b.dataset.use])));
+    const clr = $('#btClr', el); if (clr) clr.onclick = () => { rows.forEach(r => r.fill('')); draw(); };
+  };
+  draw();
 }
 const fmtQ = s => esc(s).replace(/_{3,}/g, '<span class="blank">____</span>').replace(/(\s{2,})/g, ' ');
 const enableChk = on => { const b = $('#chk'); if (b && !L.checked) b.disabled = !on; };

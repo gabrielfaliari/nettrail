@@ -305,3 +305,28 @@ textarea.code { width: 100%; height: 110px; border-radius: 12px; border: 2px sol
 .confetti i { position: absolute; top: -20px; width: 9px; height: 14px; border-radius: 2px; animation: fall 2.6s ease-in forwards; }
 @keyframes fall { to { transform: translateY(110vh) rotate(720deg); opacity: .2; } }
 @media (prefers-reduced-motion: reduce) { .node.current, .bubble, .confetti i { animation: none; } .confetti { display: none; } }
+
+/* ---------- tabela binária ---------- */
+.bintool { margin-top: 22px; }
+.bt-toggle { text-transform: none; letter-spacing: 0; font-size: 14px; }
+.bt-wrap { overflow-x: auto; margin-top: 12px; border: 2px solid var(--border); border-radius: 14px; background: var(--surface); -webkit-overflow-scrolling: touch; }
+.bt { border-collapse: collapse; width: 100%; min-width: 520px; text-align: center; }
+.bt th, .bt td { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 0; }
+.bt tr > *:last-child { border-right: 0; }
+.bt tbody tr:last-child td { border-bottom: 0; }
+.bt th { padding: 6px 2px; background: var(--surface2); }
+.bt th small { display: block; font-size: 11px; font-weight: 800; }
+.bt th b { font-size: 14px; }
+.bt th.oct, .bt td.oct { background: color-mix(in srgb, var(--primary) 7%, transparent); }
+.bt thead th.oct { background: color-mix(in srgb, var(--primary) 16%, var(--surface2)); }
+.bc { width: 100%; height: 38px; font: 900 18px ui-monospace, Consolas, monospace; color: var(--muted); }
+.bc:hover { background: var(--surface2); }
+.bc.one { color: var(--primary); background: color-mix(in srgb, var(--primary) 18%, transparent); }
+.bc.zero { color: var(--muted); }
+.bt .sum, .bt .sum-h { min-width: 52px; font-weight: 900; color: var(--gold); padding: 0 6px; }
+.bt-use { width: 36px; height: 30px; margin: 0 4px; border-radius: 8px; border: 2px solid var(--border); font-weight: 900; color: var(--blue); }
+.bt-use:disabled { opacity: .3; cursor: default; }
+.bt-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 8px; text-align: left; }
+.bt-foot small { font-size: 12px; font-weight: 600; }
+.modal.wide-m { max-width: 760px; }
+@media (max-width: 640px) { .bt { min-width: 440px; } .bc { height: 36px; font-size: 15px; } .bt th { padding: 5px 1px; } .bt th b { font-size: 11px; } .bt th small { font-size: 10px; } .bt .sum, .bt .sum-h { min-width: 40px; padding: 0 3px; } .bt-use { width: 30px; margin: 0 3px; } }
