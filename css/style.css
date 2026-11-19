@@ -330,3 +330,53 @@ textarea.code { width: 100%; height: 110px; border-radius: 12px; border: 2px sol
 .bt-foot small { font-size: 12px; font-weight: 600; }
 .modal.wide-m { max-width: 760px; }
 @media (max-width: 640px) { .bt { min-width: 440px; } .bc { height: 36px; font-size: 15px; } .bt th { padding: 5px 1px; } .bt th b { font-size: 11px; } .bt th small { font-size: 10px; } .bt .sum, .bt .sum-h { min-width: 40px; padding: 0 3px; } .bt-use { width: 30px; margin: 0 3px; } }
+
+/* ---------- ferramentas de subnetting ---------- */
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.toolbar .tb { text-transform: none; letter-spacing: 0; font-size: 13px; }
+.toolbar .tb.on { border-color: var(--primary); color: var(--primary); background: var(--primary-l); }
+.bintool:empty { display: none; }
+.bintool { margin-top: 14px; }
+.st-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.st-tabs .seg { font-size: 13px; padding: 7px 12px; }
+.st { border-collapse: collapse; width: 100%; min-width: 440px; font-size: 14px; text-align: center; }
+.st th { position: sticky; top: 0; background: var(--surface2); padding: 8px 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; z-index: 1; }
+.st td { padding: 7px 6px; border-top: 1px solid var(--border); }
+.st td small { font-size: 11px; }
+.st .mono { font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+.st tr[data-n] { cursor: pointer; }
+.st tr.hot td:first-child { color: var(--primary); }
+.st tr:hover td { background: var(--surface2); }
+.st tr.sel td { background: color-mix(in srgb, var(--gold) 22%, var(--surface)); }
+#subtool .bt-wrap, #subtoolM .bt-wrap { max-height: 330px; overflow: auto; }
+.blk-ctrl { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-top: 12px; }
+.blk-ctrl .seg { padding: 6px 10px; font-size: 13px; }
+.blk-in { font-weight: 800; font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.blk-in input { width: 74px; padding: 8px; border-radius: 10px; border: 2px solid var(--border); background: var(--surface2); color: var(--text); font: 800 16px ui-monospace, Consolas, monospace; text-align: center; }
+.blk-sum { margin: 10px 0; font-weight: 700; font-size: 14px; }
+.blk-sum b { color: var(--gold); }
+.blk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; max-height: 220px; overflow: auto; }
+.blk-grid.dense { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); }
+.blk { border: 2px solid var(--border); border-radius: 10px; padding: 5px 4px; font: 700 13px ui-monospace, Consolas, monospace; display: flex; justify-content: center; gap: 3px; background: var(--surface); }
+.blk b:first-child { color: var(--primary); }
+.blk b:last-child { color: var(--orange); }
+.blk span { color: var(--muted); }
+.blk.hit { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 20%, var(--surface)); }
+.blk-res { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+.blk-res div { border-radius: 12px; background: var(--surface2); padding: 8px 4px; text-align: center; }
+.blk-res small { display: block; font-size: 11px; font-weight: 800; }
+.blk-res b { font: 900 17px ui-monospace, Consolas, monospace; }
+.how { text-align: left; }
+.how h3 { text-align: center; }
+.how > p { text-align: center; }
+.how-ref { display: grid; gap: 8px; margin: 10px 0 6px; }
+.how-ref div { background: var(--surface2); border-radius: 12px; padding: 8px 12px; }
+.how-ref small { display: block; font-weight: 800; font-size: 12px; }
+.how-ref b { font: 800 15px ui-monospace, Consolas, monospace; color: var(--primary); }
+.how-sec { border-top: 2px solid var(--surface2); padding: 14px 0 6px; }
+.how-sec h4 { font-size: 17px; }
+.how-sec > p { color: var(--text) !important; font-weight: 600; font-size: 14px; line-height: 1.45; }
+.how-ex { background: color-mix(in srgb, var(--primary) 8%, var(--surface)); border: 2px solid color-mix(in srgb, var(--primary) 25%, transparent); border-radius: 14px; padding: 10px 12px; margin: 8px 0; }
+.how-q { font-weight: 900; }
+.how-ex ol { margin: 6px 0 0; padding-left: 22px; font: 600 14px/1.55 ui-monospace, Consolas, monospace; }
+@media (max-width: 640px) { .blk-res b { font-size: 14px; } .blk-ctrl { flex-direction: column; align-items: stretch; } }

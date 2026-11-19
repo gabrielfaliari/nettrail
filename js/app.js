@@ -75,6 +75,8 @@ const UI = {
   pr_subnet: ['Treino de subnetting', 'Subnetting drill'], pr_subnetD: ['Questões geradas na hora: máscaras, hosts, redes e binário. Infinito!', 'Freshly generated questions: masks, hosts, networks and binary. Endless!'],
   pr_ports: ['Portas e protocolos', 'Ports & protocols'], pr_portsD: ['Decore as portas mais cobradas.', 'Memorize the most common ports.'],
   pr_vocab: ['Vocabulário PT ↔ EN', 'Vocabulary PT ↔ EN'], pr_vocabD: ['Termos técnicos em português e inglês.', 'Technical terms in Portuguese and English.'],
+  pr_howto: ['Como calcular sub-redes', 'How to calculate subnets'], pr_howtoD: ['Passo a passo de cada tipo de questão, com exemplos novos a cada toque.', 'Step by step for each question type, with fresh examples on every tap.'],
+  pr_subtable: ['Tabela de sub-redes', 'Subnet table'], pr_subtableD: ['Prefixo, máscara, bloco e hosts lado a lado, mais os blocos de rede/broadcast.', 'Prefix, mask, block and hosts side by side, plus network/broadcast blocks.'],
   pr_bintable: ['Tabela binária', 'Binary table'], pr_bintableD: ['Abra a tabela de potências de 2 (2048 … 1) e preencha com 0 e 1 para converter números.', 'Open the powers-of-2 table (2048 … 1) and fill in 0s and 1s to convert numbers.'],
   pr_cmd: ['Comandos', 'Commands'], pr_cmdD: ['ping, ipconfig, tracert, show... digite os comandos.', 'ping, ipconfig, tracert, show... type the commands.'],
   noMistakes: ['Nenhum erro para revisar. Continue assim!', 'No mistakes to review. Keep it up!'],
@@ -314,6 +316,7 @@ function viewLearn() {
         <div><div class="eyebrow">${u('unit')} ${i + 1}${done ? ' · ✓' : ''}</div><h3>${un.icon} ${esc(T(un.title))}</h3>${S.hint ? `<div class="alt">${esc(TO(un.title))}</div>` : ''}</div>
         <div class="unit-actions">
           <button class="btn sm ghost-w" data-guide="${i}">📖 ${u('guide')}</button>
+          ${un.gen ? `<button class="btn sm ghost-w" data-howto="${un.id === 'u4' ? 'bin' : ''}">📐 ${S.lang === 'pt' ? 'Como calcular' : 'How to solve'}</button>` : ''}
           ${open ? '' : `<button class="btn sm ghost-w" data-jump="${i}">⏩ ${u('jumpHere')}</button>`}
         </div>
       </div>
@@ -339,7 +342,7 @@ function viewPractice() {
   const nm = Object.keys(S.mistakes).filter(k => QIDX[k]).length;
   const cards = [
     ['mistakes', '🔁', nm ? `${nm} ${u('pending')}` : ''],
-    ['random', '🎲', ''], ['subnet', '🧮', ''], ['bintable', '🔢', ''], ['ports', '🚪', ''], ['cmd', '⌨️', ''], ['vocab', '🗣️', '']
+    ['random', '🎲', ''], ['subnet', '🧮', ''], ['howto', '📐', ''], ['subtable', '📋', ''], ['bintable', '🔢', ''], ['ports', '🚪', ''], ['cmd', '⌨️', ''], ['vocab', '🗣️', '']
   ];
   return `<h2 class="page-title">${u('practice')}</h2>
   <div class="grid-cards">${cards.map(([k, ic, extra]) => `
@@ -412,6 +415,7 @@ function bindMain() {
   $$('[data-setsec]').forEach(b => b.onclick = () => { S.section = +b.dataset.setsec; viewSec = S.section; unlockSectionStart(S.section); save(); scrolledOnce = false; render(); });
   $$('[data-guide]').forEach(b => b.onclick = () => showGuide(+b.dataset.guide));
   $$('[data-jump]').forEach(b => b.onclick = () => showJump(+b.dataset.jump));
+  $$('[data-howto]').forEach(b => b.onclick = () => showHowTo(b.dataset.howto || null));
   $$('[data-node]').forEach(b => b.onclick = () => { const [i, k] = b.dataset.node.split(':').map(Number); nodeClick(i, k, b); });
   $$('[data-practice]').forEach(b => b.onclick = () => startPractice(b.dataset.practice));
   $$('[data-set]').forEach(b => b.onclick = () => {
@@ -520,6 +524,8 @@ function startJump(i) {
   begin({ mode: 'jump', unit: i, qs: shuffle(src).slice(0, 10), color: UNITS[i].color });
 }
 function startPractice(kind) {
+  if (kind === 'howto') return showHowTo();
+  if (kind === 'subtable') return modal(`<h3>📋 ${u('pr_subtable')}</h3><div class="bintool" id="subtoolM"></div><div class="mbtns"><button class="btn ghost" id="howB">📐 ${u('pr_howto')}</button><button class="btn primary" data-close>OK</button></div>`, m => { m.classList.add('wide-m'); subTool($('#subtoolM', m)); $('#howB', m).onclick = () => showHowTo(); });
   if (kind === 'bintable') return modal(`<h3>🔢 ${u('pr_bintable')}</h3><div class="bintool" id="bintoolM"></div><div class="mbtns"><button class="btn primary wide" data-close>OK</button></div>`, m => { m.classList.add('wide-m'); binTool($('#bintoolM', m)); });
   let qs = [];
   const open = UNITS.filter((_, i) => unitUnlocked(i));
@@ -556,7 +562,7 @@ function renderQ() {
       <h2 class="l-q">${fmtQ(T(q.q))}</h2>
       ${S.hint && TO(q.q) ? `<div class="l-alt">${esc(TO(q.q))}</div>` : ''}
       <div class="l-area" id="area"></div>
-      ${q.sub ? '<div class="bintool" id="bintool"></div>' : ''}
+      ${q.sub ? '<div class="toolbar" id="toolbar"></div><div class="bintool" id="subtool"></div><div class="bintool" id="bintool"></div>' : ''}
     </div>
     <div class="l-foot" id="foot"><div class="foot-in"><div class="fb" id="fb"></div><button class="btn primary big" id="chk" disabled>${u('check')}</button></div></div>
   </div>`;
@@ -564,16 +570,154 @@ function renderQ() {
     m => $('#q', m).onclick = () => { closeModal(); endOverlay(); });
   $('#chk').onclick = () => L.checked ? next() : check();
   ({ mc: rMc, tf: rTf, order: rOrder, match: rMatch, fill: rFill })[q.t](q, $('#area'));
-  if (q.sub) {
-    const wantsBits = q.t === 'fill' && /^[01]{8}$/.test(q.a[0]);
-    binTool($('#bintool'), {
-      collapsible: true,
-      onUse: q.t === 'fill' ? row => {
-        const inp = $('#fill'); if (!inp || L.checked) return;
-        inp.value = wantsBits ? row.bits8 : String(row.sum); inp.dispatchEvent(new Event('input')); inp.focus();
-      } : null
+  if (q.sub) mountLessonTools(q);
+}
+function mountLessonTools(q) {
+  const wantsBits = q.t === 'fill' && /^[01]{8}$/.test(q.a[0]);
+  const m = T(q.q).match(/\/(\d{1,2})\b/), pre = m ? +m[1] : null;
+  const pt = S.lang === 'pt';
+  // binário -> só tabela binária; demais (sub-rede) -> só tabela de sub-redes
+  const isBin = howKeyFor(q) === 'bin', useSub = !isBin, useBin = isBin;
+  const drawBar = () => {
+    $('#toolbar').innerHTML = `
+      ${useSub ? `<button class="btn sm ghost tb ${S.subOpen ? 'on' : ''}" data-tb="sub">📋 ${pt ? 'Tabela de sub-redes' : 'Subnet table'}</button>` : ''}
+      ${useBin ? `<button class="btn sm ghost tb ${S.binOpen ? 'on' : ''}" data-tb="bin">🧮 ${pt ? 'Tabela binária' : 'Binary table'}</button>` : ''}
+      <button class="btn sm ghost tb" data-tb="how">📐 ${pt ? 'Como calcular' : 'How to solve'}</button>`;
+    $$('[data-tb]').forEach(b => b.onclick = () => {
+      const k = b.dataset.tb;
+      if (k === 'how') return showHowTo(howKeyFor(q));
+      if (k === 'sub') S.subOpen = !S.subOpen; else S.binOpen = !S.binOpen;
+      save(); drawBar(); drawPanels();
     });
+  };
+  const drawPanels = () => {
+    const st = $('#subtool'), bt = $('#bintool');
+    if (useSub && S.subOpen) { if (!st.dataset.on) { st.dataset.on = 1; subTool(st, { prefix: pre }); } } else { st.innerHTML = ''; delete st.dataset.on; }
+    if (useBin && S.binOpen) {
+      if (!bt.dataset.on) {
+        bt.dataset.on = 1;
+        binTool(bt, { onUse: q.t === 'fill' ? row => { const inp = $('#fill'); if (!inp || L.checked) return; inp.value = wantsBits ? row.bits8 : String(row.sum); inp.dispatchEvent(new Event('input')); inp.focus(); } : null });
+      }
+    } else { bt.innerHTML = ''; delete bt.dataset.on; }
+  };
+  drawBar(); drawPanels();
+}
+const howKeyFor = q => { const m = (q.id || '').match(/^gen_(\w+)/); return m ? m[1] : null; };
+
+/* ---------- tabela de sub-redes ---------- */
+function subRow(n) {
+  const total = 2 ** (32 - n), hosts = Math.max(total - 2, 0);
+  const oct = n > 24 ? 4 : n > 16 ? 3 : 2;
+  const block = oct === 4 ? 2 ** (32 - n) : oct === 3 ? 2 ** (24 - n) : 2 ** (16 - n);
+  return { n, mask: maskStr(n), total, hosts, oct, block, maskVal: 256 - block };
+}
+function subTool(el, opts = {}) {
+  const pt = S.lang === 'pt';
+  let view = opts.view || 'table', sel = opts.prefix || null;
+  let bp = opts.prefix && opts.prefix >= 24 && opts.prefix <= 30 ? opts.prefix : 26, num = '';
+  const draw = () => {
+    let body = '';
+    if (view === 'table') {
+      const rows = []; for (let n = 16; n <= 30; n++) rows.push(subRow(n));
+      body = `<div class="bt-wrap"><table class="st">
+        <thead><tr><th>${pt ? 'Prefixo' : 'Prefix'}</th><th>${pt ? 'Máscara' : 'Mask'}</th><th>${pt ? 'Bloco' : 'Block'}</th><th>${pt ? 'Endereços' : 'Addresses'}</th><th>${pt ? 'Hosts úteis' : 'Usable hosts'}</th></tr></thead>
+        <tbody>${rows.map(r => `<tr class="${r.n === sel ? 'sel' : ''} ${r.n >= 24 ? 'hot' : ''}" data-n="${r.n}"><td><b>/${r.n}</b></td><td class="mono">${r.mask}</td><td>${r.block} <small>(${r.oct}º)</small></td><td>${r.total.toLocaleString(pt ? 'pt-BR' : 'en')}</td><td><b>${r.hosts.toLocaleString(pt ? 'pt-BR' : 'en')}</b></td></tr>`).join('')}</tbody>
+      </table></div>
+      <div class="bt-foot"><small>${pt ? 'Toque numa linha para destacar. Bloco = 256 − valor da máscara no octeto indicado (º). Hosts úteis = endereços − 2.' : 'Tap a row to highlight it. Block = 256 − mask value in the octet shown (º). Usable hosts = addresses − 2.'}</small></div>`;
+    } else {
+      const r = subRow(bp), b = r.block, v = num === '' ? null : Math.max(0, Math.min(255, +num));
+      const chips = []; for (let s = 0; s < 256; s += b) chips.push(s);
+      const hit = v == null ? null : Math.floor(v / b) * b;
+      body = `<div class="blk-ctrl"><div class="segs">${[24, 25, 26, 27, 28, 29, 30].map(n => `<button class="seg ${n === bp ? 'on' : ''}" data-bp="${n}">/${n}</button>`).join('')}</div>
+        <label class="blk-in">${pt ? 'Último octeto do IP:' : 'Last octet of the IP:'} <input id="blkNum" inputmode="numeric" maxlength="3" value="${num}" placeholder="0–255"></label></div>
+        <div class="blk-sum">${pt ? 'Máscara' : 'Mask'} ${r.mask} → ${pt ? 'bloco' : 'block'} = 256 − ${r.maskVal} = <b>${b}</b> · ${256 / b} ${pt ? 'sub-redes' : 'subnets'} · ${r.hosts} hosts ${pt ? 'cada' : 'each'}</div>
+        <div class="blk-grid ${b <= 8 ? 'dense' : ''}">${chips.map(s => `<div class="blk ${s === hit ? 'hit' : ''}"><b>.${s}</b><span>–</span><b>.${s + b - 1}</b></div>`).join('')}</div>
+        ${hit != null ? `<div class="blk-res"><div><small>${pt ? 'Rede' : 'Network'}</small><b>.${hit}</b></div><div><small>${pt ? '1º host' : 'First host'}</small><b>.${hit + 1}</b></div><div><small>${pt ? 'Último host' : 'Last host'}</small><b>.${hit + b - 2}</b></div><div><small>Broadcast</small><b>.${hit + b - 1}</b></div></div>` : `<div class="bt-foot"><small>${pt ? 'Cada caixinha é uma sub-rede: o 1º número é a REDE e o último é o BROADCAST. Digite o último octeto do IP para ver em qual bloco ele cai.' : 'Each box is a subnet: the first number is the NETWORK and the last is the BROADCAST. Type the last octet of the IP to see which block it falls in.'}</small></div>`}`;
+    }
+    el.innerHTML = `<div class="st-tabs"><button class="seg ${view === 'table' ? 'on' : ''}" data-v="table">📋 ${pt ? 'Tabela' : 'Table'}</button><button class="seg ${view === 'blocks' ? 'on' : ''}" data-v="blocks">🧱 ${pt ? 'Blocos (rede/broadcast)' : 'Blocks (network/broadcast)'}</button></div>${body}`;
+    $$('[data-v]', el).forEach(b => b.onclick = () => { view = b.dataset.v; draw(); });
+    $$('tr[data-n]', el).forEach(tr => tr.onclick = () => { sel = +tr.dataset.n === sel ? null : +tr.dataset.n; sfx('tap'); draw(); });
+    $$('[data-bp]', el).forEach(b => b.onclick = () => { bp = +b.dataset.bp; draw(); });
+    const inp = $('#blkNum', el);
+    if (inp) inp.oninput = () => { num = inp.value.replace(/\D/g, '').slice(0, 3); const pos = inp.selectionStart; draw(); const n2 = $('#blkNum', el); n2.focus(); try { n2.setSelectionRange(pos, pos); } catch (e) { } };
+    const selRow = $('tr.sel', el); if (selRow && view === 'table') { const w = $('.bt-wrap', el); w.scrollTop = selRow.offsetTop - 40; }
+  };
+  draw();
+}
+
+/* ---------- como calcular (passo a passo) ---------- */
+const HOW = [
+  { k: 'hosts', ic: '👥', t: ['Quantos hosts tem uma rede?', 'How many hosts in a network?'],
+    m: ['1) Bits de host = 32 − prefixo.  2) Calcule 2 elevado a esses bits.  3) Tire 2 (o endereço de rede e o de broadcast).', '1) Host bits = 32 − prefix.  2) Raise 2 to that power.  3) Subtract 2 (network and broadcast addresses).'] },
+  { k: 'need', ic: '🎯', t: ['Menor sub-rede para N hosts', 'Smallest subnet for N hosts'],
+    m: ['Vá dobrando as potências de 2 (4, 8, 16, 32…) até achar a primeira em que (potência − 2) ≥ N. O expoente são os bits de host; o prefixo é 32 − bits.', 'Keep doubling powers of 2 (4, 8, 16, 32…) until (power − 2) ≥ N. The exponent is the host bits; the prefix is 32 − host bits.'] },
+  { k: 'mask', ic: '🎭', t: ['Prefixo → máscara', 'Prefix → mask'],
+    m: ['Cada 8 bits completos viram 255. Os bits que sobram entram no próximo octeto somando a tabela da esquerda para a direita: 128, 192, 224, 240, 248, 252, 254, 255.', 'Every full 8 bits become 255. Leftover bits go into the next octet by adding the table left to right: 128, 192, 224, 240, 248, 252, 254, 255.'] },
+  { k: 'cidr', ic: '🔁', t: ['Máscara → prefixo', 'Mask → prefix'],
+    m: ['Some 8 para cada 255. No octeto que não é 255, conte quantos bits 1 ele tem (192 = 2, 224 = 3, 240 = 4, 248 = 5, 252 = 6, 254 = 7).', 'Add 8 for each 255. In the octet that isn\'t 255, count its one-bits (192 = 2, 224 = 3, 240 = 4, 248 = 5, 252 = 6, 254 = 7).'] },
+  { k: 'network', ic: '🏠', t: ['Endereço de rede', 'Network address'],
+    m: ['1) Bloco = 256 − valor da máscara no último octeto.  2) Liste os múltiplos do bloco (0, bloco, 2×bloco…).  3) A rede é o maior múltiplo que não passa do número do IP.', '1) Block = 256 − mask value in the last octet.  2) List multiples of the block (0, block, 2×block…).  3) The network is the largest multiple not greater than the IP number.'] },
+  { k: 'broadcast', ic: '📣', t: ['Endereço de broadcast', 'Broadcast address'],
+    m: ['Ache a rede (como acima). O broadcast é a PRÓXIMA rede menos 1, ou seja, rede + bloco − 1. Os hosts úteis ficam entre rede + 1 e broadcast − 1.', 'Find the network (as above). The broadcast is the NEXT network minus 1, i.e. network + block − 1. Usable hosts are between network + 1 and broadcast − 1.'] },
+  { k: 'bin', ic: '🔢', t: ['Decimal ↔ binário', 'Decimal ↔ binary'],
+    m: ['Use a tabela 128 64 32 16 8 4 2 1. Decimal → binário: da esquerda para a direita, se o valor cabe no que resta, marque 1 e subtraia; senão marque 0. Binário → decimal: some os valores das colunas com 1.', 'Use the table 128 64 32 16 8 4 2 1. Decimal → binary: left to right, if the value fits in what remains, write 1 and subtract; else write 0. Binary → decimal: add the values of the columns with a 1.'] }
+];
+function howExample(k) {
+  const pt = S.lang === 'pt', L2 = (a, b) => pt ? a : b;
+  if (k === 'hosts') {
+    const n = rnd(20, 30), h = 32 - n;
+    return { q: L2(`Quantos hosts úteis tem uma /${n}?`, `How many usable hosts in a /${n}?`), s: [
+      L2(`Bits de host = 32 − ${n} = ${h}`, `Host bits = 32 − ${n} = ${h}`),
+      `2^${h} = ${2 ** h} ${L2('endereços', 'addresses')}`,
+      `${2 ** h} − 2 = ${2 ** h - 2} ${L2('hosts úteis', 'usable hosts')} ✅`] };
   }
+  if (k === 'need') {
+    const N = rnd(5, 900); let hb = 2; const tries = [];
+    while (2 ** hb - 2 < N) { tries.push(`2^${hb} − 2 = ${2 ** hb - 2} ${L2('(não dá)', "(too small)")}`); hb++; }
+    tries.push(`2^${hb} − 2 = ${2 ** hb - 2} ≥ ${N} ✔`);
+    return { q: L2(`Preciso de ${N} hosts. Qual o menor prefixo?`, `I need ${N} hosts. Smallest prefix?`), s: [...tries.slice(-4), L2(`São ${hb} bits de host → prefixo = 32 − ${hb} = /${32 - hb} ✅`, `That's ${hb} host bits → prefix = 32 − ${hb} = /${32 - hb} ✅`)] };
+  }
+  if (k === 'mask' || k === 'cidr') {
+    const n = rnd(17, 30), full = Math.floor(n / 8), rest = n % 8, vals = [128, 64, 32, 16, 8, 4, 2, 1].slice(0, rest), v = vals.reduce((a, b) => a + b, 0);
+    if (k === 'mask') return { q: L2(`Qual a máscara de /${n}?`, `What is the mask for /${n}?`), s: [
+      L2(`${n} = ${full} × 8 + ${rest} → ${full} octeto(s) com 255`, `${n} = ${full} × 8 + ${rest} → ${full} octet(s) of 255`),
+      rest ? L2(`Sobram ${rest} bits: ${vals.join(' + ')} = ${v}`, `${rest} bits left: ${vals.join(' + ')} = ${v}`) : L2('Não sobram bits: o próximo octeto é 0', 'No bits left: the next octet is 0'),
+      L2(`Máscara: ${maskStr(n)} ✅`, `Mask: ${maskStr(n)} ✅`)] };
+    return { q: L2(`Qual o prefixo da máscara ${maskStr(n)}?`, `What prefix is mask ${maskStr(n)}?`), s: [
+      L2(`${full} octeto(s) 255 → ${full} × 8 = ${full * 8} bits`, `${full} octet(s) of 255 → ${full} × 8 = ${full * 8} bits`),
+      rest ? L2(`${v} = ${vals.join(' + ')} → ${rest} bits 1`, `${v} = ${vals.join(' + ')} → ${rest} one-bits`) : L2('O resto é 0 → 0 bits', 'The rest is 0 → 0 bits'),
+      `${full * 8} + ${rest} = /${n} ✅`] };
+  }
+  if (k === 'network' || k === 'broadcast') {
+    const b = netBlock(), mv = 256 - b.block, mult = []; for (let s = 0; s < 256 && mult.length < 8; s += b.block) mult.push(s);
+    const ip = `${b.p}.${b.host}/${b.n}`;
+    const s = [
+      L2(`Máscara /${b.n} = ${maskStr(b.n)} → último octeto ${mv}`, `Mask /${b.n} = ${maskStr(b.n)} → last octet ${mv}`),
+      L2(`Bloco = 256 − ${mv} = ${b.block}`, `Block = 256 − ${mv} = ${b.block}`),
+      L2(`Múltiplos: ${mult.join(', ')}${256 / b.block > 8 ? '…' : ''}`, `Multiples: ${mult.join(', ')}${256 / b.block > 8 ? '…' : ''}`),
+      L2(`${b.host} fica entre ${b.net} e ${b.net + b.block} → rede = .${b.net}`, `${b.host} is between ${b.net} and ${b.net + b.block} → network = .${b.net}`)];
+    if (k === 'network') s.push(L2(`Endereço de rede: ${b.p}.${b.net} ✅`, `Network address: ${b.p}.${b.net} ✅`));
+    else s.push(L2(`Broadcast = ${b.net} + ${b.block} − 1 = ${b.bc} → ${b.p}.${b.bc} ✅`, `Broadcast = ${b.net} + ${b.block} − 1 = ${b.bc} → ${b.p}.${b.bc} ✅`));
+    return { q: L2(`${k === 'network' ? 'Rede' : 'Broadcast'} de ${ip}?`, `${k === 'network' ? 'Network' : 'Broadcast'} of ${ip}?`), s };
+  }
+  const n = rnd(1, 255); let r = n; const s = [];
+  for (const v of [128, 64, 32, 16, 8, 4, 2, 1]) { if (r >= v) { s.push(L2(`${r} ≥ ${v}? sim → 1, resta ${r - v}`, `${r} ≥ ${v}? yes → 1, ${r - v} left`)); r -= v; } else s.push(L2(`${r} ≥ ${v}? não → 0`, `${r} ≥ ${v}? no → 0`)); }
+  s.push(`${n} = ${bin8(n)} ✅`);
+  return { q: L2(`Converter ${n} para binário`, `Convert ${n} to binary`), s };
+}
+function showHowTo(focus) {
+  const pt = S.lang === 'pt';
+  const list = focus && HOW.some(h => h.k === focus) ? [HOW.find(h => h.k === focus), ...HOW.filter(h => h.k !== focus)] : HOW;
+  const card = h => { const ex = howExample(h.k); return `<div class="how-ex"><div class="how-q">📝 ${esc(ex.q)}</div><ol>${ex.s.map(x => `<li>${esc(x)}</li>`).join('')}</ol></div>`; };
+  modal(`<div class="how">
+    <h3>📐 ${pt ? 'Como calcular sub-redes' : 'How to calculate subnets'}</h3>
+    <p>${pt ? 'Decore estas duas linhas, elas resolvem quase tudo:' : 'Memorize these two lines, they solve almost everything:'}</p>
+    <div class="how-ref"><div><small>${pt ? 'Valores dos bits' : 'Bit values'}</small><b>128 · 64 · 32 · 16 · 8 · 4 · 2 · 1</b></div><div><small>${pt ? 'Máscaras possíveis (soma acumulada)' : 'Possible masks (running sum)'}</small><b>128 · 192 · 224 · 240 · 248 · 252 · 254 · 255</b></div></div>
+    ${list.map(h => `<section class="how-sec" data-k="${h.k}"><h4>${h.ic} ${esc(T(h.t))}</h4><p>${esc(T(h.m))}</p><div class="how-box">${card(h)}</div><button class="btn sm ghost" data-ex="${h.k}">🎲 ${pt ? 'Novo exemplo' : 'New example'}</button></section>`).join('')}
+    <div class="mbtns"><button class="btn primary wide" data-close>OK</button></div></div>`, m => {
+    m.classList.add('wide-m');
+    $$('[data-ex]', m).forEach(b => b.onclick = () => { const h = HOW.find(x => x.k === b.dataset.ex); $(`[data-k="${h.k}"] .how-box`, m).innerHTML = card(h); sfx('tap'); });
+  });
 }
 
 /* ---------- tabela binária (2^11 ... 2^0) ---------- */
