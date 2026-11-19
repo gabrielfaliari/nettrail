@@ -929,7 +929,17 @@ document.addEventListener('keydown', e => {
 
 /* ---------- boot ---------- */
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { }));
+  let swReg = null;
+  const hadController = !!navigator.serviceWorker.controller;
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => { swReg = r; r.update().catch(() => { }); }).catch(() => { }));
+  // quando uma versão nova assume, recarrega uma vez (só fora de uma lição)
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloaded) return;
+    const go = () => { if (reloaded) return; reloaded = true; location.reload(); };
+    if (!L) go(); else { const t = setInterval(() => { if (!L) { clearInterval(t); go(); } }, 1000); }
+  });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && swReg) swReg.update().catch(() => { }); });
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && !L) { ensureQuests(); render(); } });
 render();

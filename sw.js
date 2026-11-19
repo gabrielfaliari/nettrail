@@ -1,20 +1,31 @@
 /* Service worker: deixa o app funcionar offline.
-   Ao publicar uma atualização, aumente o número da versão abaixo (v1 -> v2). */
-const CACHE = 'nettrail-v4';
+   Estratégia: com internet, sempre busca a versão mais nova (rede primeiro);
+   sem internet, usa a cópia guardada. Ao publicar uma atualização, aumente a versão abaixo. */
+const CACHE = 'nettrail-v5';
 const FILES = ['./', 'index.html', 'css/style.css', 'js/content.js', 'js/app.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
+  // cache: 'reload' ignora o cache HTTP do navegador, garantindo arquivos novos
+  e.waitUntil(caches.open(CACHE)
+    .then(c => Promise.all(FILES.map(f => fetch(new Request(f, { cache: 'reload' })).then(r => r.ok && c.put(f, r)).catch(() => { }))))
+    .then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
-/* Usa o cache na hora (rápido/offline) e atualiza em segundo plano. */
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
-  e.respondWith(caches.open(CACHE).then(async cache => {
-    const hit = await cache.match(e.request, { ignoreSearch: true });
-    const net = fetch(e.request).then(res => { if (res && (res.ok || res.type === 'opaque')) cache.put(e.request, res.clone()); return res; }).catch(() => hit);
-    return hit || net;
-  }));
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  const sameOrigin = new URL(req.url).origin === self.location.origin;
+  if (!sameOrigin) { // fontes do Google: cache primeiro
+    e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => { const cp = res.clone(); caches.open(CACHE).then(c => c.put(req, cp)); return res; })));
+    return;
+  }
+  // arquivos do app: rede primeiro (sem cache HTTP), cópia guardada se estiver offline
+  e.respondWith(
+    fetch(req, { cache: 'no-cache' }).then(res => {
+      if (res.ok) { const cp = res.clone(); caches.open(CACHE).then(c => c.put(req, cp)); }
+      return res;
+    }).catch(() => caches.match(req, { ignoreSearch: true }).then(hit => hit || caches.match('index.html')))
+  );
 });
