@@ -20,8 +20,9 @@ const weekKey = () => { const d = new Date(); const wd = (d.getDay() + 6) % 7; d
 const DEF = {
   v: 1, lang: 'pt', onboarded: false, section: 1, xp: 0, streak: 0, best: 0, last: null,
   lessons: {}, unlocked: ['u1'], unitDone: {}, mistakes: {},
-  st: { ans: 0, cor: 0, perfect: 0, lessons: 0, subnet: 0, en: 0, practice: 0 },
-  xpDay: {}, daily: null, weekly: null, ach: {}, sound: true, hint: true, goal: 50, theme: 'auto'
+  st: { ans: 0, cor: 0, perfect: 0, lessons: 0, subnet: 0, en: 0, practice: 0, bestCombo: 0, quests: 0, weeks: 0, jumps: 0, night: 0, early: 0 },
+  xpDay: {}, daily: null, weekly: null, ach: {}, sound: true, hint: true, goal: 50, theme: 'auto',
+  bytes: null, av: null, owned: [], dogName: 'Patch'
 };
 function load() {
   try {
@@ -31,13 +32,24 @@ function load() {
   return clone(DEF);
 }
 let S = load();
+const A = window.NTAvatar, M = window.NTMascot;
+let welcomeBytes = 0;
+function migrate() {
+  if (S.bytes == null) { welcomeBytes = Math.floor(S.xp / 10) + 15 * Object.keys(S.ach || {}).length; S.bytes = welcomeBytes; }
+  if (!S.av) S.av = Object.assign({}, A.DEFAULT);
+  if (!Array.isArray(S.owned)) S.owned = [];
+  A.ITEMS.filter(i => i.price === 0 && !i.ach).forEach(i => { if (!S.owned.includes(i.id)) S.owned.push(i.id); });
+  if (!S.dogName) S.dogName = 'Patch';
+}
+migrate();
+const addBytes = n => { S.bytes = (S.bytes || 0) + n; };
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { } }
 
 /* ---------- i18n ---------- */
 const T = x => x == null ? '' : Array.isArray(x) ? x[S.lang === 'pt' ? 0 : 1] : String(x);
 const TO = x => Array.isArray(x) ? x[S.lang === 'pt' ? 1 : 0] : '';
 const UI = {
-  learn: ['Aprender', 'Learn'], practice: ['Praticar', 'Practice'], missions: ['Missões', 'Quests'], profile: ['Perfil', 'Profile'],
+  avatar: ['Avatar', 'Avatar'], learn: ['Aprender', 'Learn'], practice: ['Praticar', 'Practice'], missions: ['Missões', 'Quests'], profile: ['Perfil', 'Profile'],
   start: ['Começar', 'Start'], continue: ['Continuar', 'Continue'], check: ['Verificar', 'Check'], skip: ['Pular', 'Skip'],
   guide: ['Guia', 'Guide'], unit: ['Unidade', 'Unit'], lesson: ['Lição', 'Lesson'], checkpoint: ['Teste da unidade', 'Unit test'],
   locked: ['Bloqueado', 'Locked'], jumpHere: ['Pular para cá', 'Jump here'], practiceAgain: ['Praticar de novo', 'Practice again'],
@@ -157,7 +169,10 @@ const unitComplete = i => !!S.unitDone[UNITS[i].id];
 const unitUnlocked = i => i === 0 || S.unlocked.includes(UNITS[i].id) || unitComplete(i - 1);
 const nodeDone = (un, k) => !!S.lessons[lid(un, k)];
 function nodeAvail(i, k) { const un = UNITS[i]; if (!unitUnlocked(i)) return false; return k === 0 || nodeDone(un, k - 1) || nodeDone(un, k) || !!S.unitDone[un.id]; }
-function currentNode() { for (let i = 0; i < UNITS.length; i++) for (let k = 0; k <= LPU; k++) if (nodeAvail(i, k) && !nodeDone(UNITS[i], k)) return [i, k]; return null; }
+function currentNode() {
+  const scan = skipDone => { for (let i = 0; i < UNITS.length; i++) { if (skipDone && S.unitDone[UNITS[i].id]) continue; for (let k = 0; k <= LPU; k++) if (nodeAvail(i, k) && !nodeDone(UNITS[i], k)) return [i, k]; } return null; };
+  return scan(true) || scan(false);
+}
 function unlockSectionStart(sec) { const un = UNITS.find(x => x.sec === sec); if (un && !S.unlocked.includes(un.id)) S.unlocked.push(un.id); }
 
 /* ---------- streak / xp / missions ---------- */
@@ -187,7 +202,7 @@ function ensureQuests() {
 function addXP(n, fromQuest) {
   S.xp += n; const d = today(); S.xpDay[d] = (S.xpDay[d] || 0) + n;
   ensureQuests(); S.weekly.xp += n;
-  if (!S.weekly.done && S.weekly.xp >= S.weekly.target) { S.weekly.done = true; toast('🏆 ' + u('weeklyQuest') + ' +50 XP'); addXP(50, true); }
+  if (!S.weekly.done && S.weekly.xp >= S.weekly.target) { S.weekly.done = true; S.st.weeks = (S.st.weeks || 0) + 1; toast('🏆 ' + u('weeklyQuest') + ' +50 XP · 🪙+25'); addBytes(25); addXP(50, true); }
   if (!fromQuest) quest('xp', n);
 }
 function quest(k, amount, isMax) {
@@ -195,7 +210,7 @@ function quest(k, amount, isMax) {
   for (const q of S.daily.list) {
     if (q.k !== k || q.done) continue;
     q.p = isMax ? Math.max(q.p, amount) : q.p + amount;
-    if (q.p >= q.n) { q.p = q.n; q.done = true; toast(QUESTS[k].ic + ' ' + u('questDone') + ' +10 XP'); sfx('quest'); addXP(10, true); }
+    if (q.p >= q.n) { q.p = q.n; q.done = true; S.st.quests = (S.st.quests || 0) + 1; toast(QUESTS[k].ic + ' ' + u('questDone') + ' +10 XP · 🪙+5'); sfx('quest'); addBytes(5); addXP(10, true); }
   }
 }
 function prune() { const ks = Object.keys(S.xpDay).sort(); while (ks.length > 60) delete S.xpDay[ks.shift()]; }
@@ -212,14 +227,47 @@ const ACH = [
   { id: 'c500', ic: '🎯', n: ['Atirador de elite', 'Sharpshooter'], d: ['Acerte 500 questões', 'Answer 500 questions correctly'], ok: () => S.st.cor >= 500 },
   { id: 'p5', ic: '💎', n: ['Perfeccionista', 'Perfectionist'], d: ['5 lições sem errar', '5 flawless lessons'], ok: () => S.st.perfect >= 5 },
   { id: 'unit', ic: '🏅', n: ['Unidade dominada', 'Unit mastered'], d: ['Conclua o teste de uma unidade', 'Pass a unit test'], ok: () => UNITS.some(x => S.unitDone[x.id] === true) },
-  { id: 'sec1', ic: '🥉', n: ['Técnico júnior', 'Junior tech'], d: ['Conclua todas as unidades do Iniciante', 'Finish all Beginner units'], ok: () => UNITS.filter(x => x.sec === 1).every(x => S.unitDone[x.id]) },
-  { id: 'sec2', ic: '🥈', n: ['Técnico pleno', 'Mid-level tech'], d: ['Conclua todas as unidades do Intermediário', 'Finish all Intermediate units'], ok: () => UNITS.filter(x => x.sec === 2).every(x => S.unitDone[x.id]) },
-  { id: 'sec3', ic: '🥇', n: ['Técnico sênior', 'Senior tech'], d: ['Conclua todas as unidades do Avançado', 'Finish all Advanced units'], ok: () => UNITS.filter(x => x.sec === 3).every(x => S.unitDone[x.id]) },
+  ...C.sections.map(s => ({ id: 'sec' + s.id, ic: s.achIc || '🏆', n: s.ach || s.name, d: [`Conclua todas as unidades de ${s.name[0]}`, `Finish all ${s.name[1]} units`], ok: () => UNITS.filter(x => x.sec === s.id).every(x => S.unitDone[x.id]) })),
   { id: 'sub', ic: '🧮', n: ['Mestre do subnetting', 'Subnetting master'], d: ['Acerte 50 questões de subnetting', 'Answer 50 subnetting questions correctly'], ok: () => S.st.subnet >= 50 },
   { id: 'en', ic: '🌎', n: ['Bilíngue', 'Bilingual'], d: ['Complete 5 lições em inglês', 'Complete 5 lessons in English'], ok: () => S.st.en >= 5 },
-  { id: 'gym', ic: '🏋️', n: ['Dedicado', 'Dedicated'], d: ['Complete 10 treinos', 'Complete 10 practice sessions'], ok: () => S.st.practice >= 10 }
+  { id: 'gym', ic: '🏋️', n: ['Dedicado', 'Dedicated'], d: ['Complete 10 treinos', 'Complete 10 practice sessions'], ok: () => S.st.practice >= 10 },
+  // ---- conquistas extras ----
+  { id: 's14', ic: '🔥', n: ['Duas semanas', 'Two weeks'], d: ['Sequência de 14 dias', '14-day streak'], ok: () => S.best >= 14 },
+  { id: 's60', ic: '☄️', n: ['Dois meses on-line', 'Two months up'], d: ['Sequência de 60 dias', '60-day streak'], ok: () => S.best >= 60 },
+  { id: 's100', ic: '💯', n: ['Uptime 100', 'Uptime 100'], d: ['Sequência de 100 dias', '100-day streak'], ok: () => S.best >= 100 },
+  { id: 's365', ic: '👑', n: ['Disponibilidade 99,999%', 'Five nines'], d: ['Sequência de 365 dias', '365-day streak'], ok: () => S.best >= 365 },
+  { id: 'x5000', ic: '🔋', n: ['Banco de baterias', 'Battery bank'], d: ['Ganhe 5.000 XP', 'Earn 5,000 XP'], ok: () => S.xp >= 5000 },
+  { id: 'x10000', ic: '🏭', n: ['Usina de XP', 'XP power plant'], d: ['Ganhe 10.000 XP', 'Earn 10,000 XP'], ok: () => S.xp >= 10000 },
+  { id: 'x25000', ic: '🌩️', n: ['Raio em garrafa', 'Lightning in a bottle'], d: ['Ganhe 25.000 XP', 'Earn 25,000 XP'], ok: () => S.xp >= 25000 },
+  { id: 'c1000', ic: '🎯', n: ['Mil acertos', 'Thousand right'], d: ['Acerte 1.000 questões', 'Answer 1,000 questions correctly'], ok: () => S.st.cor >= 1000 },
+  { id: 'c2500', ic: '🏹', n: ['Precisão cirúrgica', 'Surgical precision'], d: ['Acerte 2.500 questões', 'Answer 2,500 questions correctly'], ok: () => S.st.cor >= 2500 },
+  { id: 'c5000', ic: '🧠', n: ['Enciclopédia de TI', 'IT encyclopedia'], d: ['Acerte 5.000 questões', 'Answer 5,000 questions correctly'], ok: () => S.st.cor >= 5000 },
+  { id: 'p25', ic: '💎', n: ['Zero defeitos', 'Zero defects'], d: ['25 lições sem errar', '25 flawless lessons'], ok: () => S.st.perfect >= 25 },
+  { id: 'p100', ic: '💠', n: ['Cristal puro', 'Flawless crystal'], d: ['100 lições sem errar', '100 flawless lessons'], ok: () => S.st.perfect >= 100 },
+  { id: 'l50', ic: '📚', n: ['Estudante dedicado', 'Dedicated student'], d: ['Complete 50 lições', 'Complete 50 lessons'], ok: () => S.st.lessons >= 50 },
+  { id: 'l200', ic: '🎓', n: ['Formado em redes', 'Network graduate'], d: ['Complete 200 lições', 'Complete 200 lessons'], ok: () => S.st.lessons >= 200 },
+  { id: 'k15', ic: '🔥', n: ['Em chamas', 'On fire'], d: ['Acerte 15 seguidas numa lição', 'Get 15 right in a row in a lesson'], ok: () => (S.st.bestCombo || 0) >= 15 },
+  { id: 'k30', ic: '🌟', n: ['Imbatível', 'Unbeatable'], d: ['Acerte 30 seguidas', 'Get 30 right in a row'], ok: () => (S.st.bestCombo || 0) >= 30 },
+  { id: 'q10', ic: '📋', n: ['Caçador de missões', 'Quest hunter'], d: ['Complete 10 missões diárias', 'Complete 10 daily quests'], ok: () => (S.st.quests || 0) >= 10 },
+  { id: 'q50', ic: '🗂️', n: ['Colecionador de missões', 'Quest collector'], d: ['Complete 50 missões diárias', 'Complete 50 daily quests'], ok: () => (S.st.quests || 0) >= 50 },
+  { id: 'w4', ic: '🏆', n: ['Mês campeão', 'Champion month'], d: ['Complete 4 missões semanais', 'Complete 4 weekly quests'], ok: () => (S.st.weeks || 0) >= 4 },
+  { id: 'g7', ic: '📅', n: ['Meta batida', 'Goal crusher'], d: ['Bata a meta diária em 7 dias', 'Hit your daily goal on 7 days'], ok: () => Object.values(S.xpDay).filter(v => v >= S.goal).length >= 7 },
+  { id: 'g30', ic: '🗓️', n: ['Disciplina de ferro', 'Iron discipline'], d: ['Bata a meta diária em 30 dias', 'Hit your daily goal on 30 days'], ok: () => Object.values(S.xpDay).filter(v => v >= S.goal).length >= 30 },
+  { id: 'u10', ic: '🧱', n: ['Dez unidades', 'Ten units'], d: ['Passe no teste de 10 unidades', 'Pass 10 unit tests'], ok: () => UNITS.filter(x => S.unitDone[x.id] === true).length >= 10 },
+  { id: 'u20', ic: '🏗️', n: ['Vinte unidades', 'Twenty units'], d: ['Passe no teste de 20 unidades', 'Pass 20 unit tests'], ok: () => UNITS.filter(x => S.unitDone[x.id] === true).length >= 20 },
+  { id: 'uall', ic: '🌐', n: ['Arquiteto completo', 'Full-stack architect'], d: ['Conclua todas as unidades do app', 'Finish every unit in the app'], ok: () => UNITS.every(x => S.unitDone[x.id]) },
+  { id: 'jump', ic: '⏩', n: ['Atalho merecido', 'Earned shortcut'], d: ['Passe em um teste de salto', 'Pass a jump test'], ok: () => (S.st.jumps || 0) >= 1 },
+  { id: 'sub200', ic: '🧮', n: ['Calculadora humana', 'Human calculator'], d: ['Acerte 200 questões de subnetting', 'Answer 200 subnetting questions correctly'], ok: () => S.st.subnet >= 200 },
+  { id: 'en25', ic: '🗽', n: ['Fluente em TI', 'Fluent in IT'], d: ['Complete 25 lições em inglês', 'Complete 25 lessons in English'], ok: () => S.st.en >= 25 },
+  { id: 'gym50', ic: '🥋', n: ['Faixa preta', 'Black belt'], d: ['Complete 50 treinos', 'Complete 50 practice sessions'], ok: () => S.st.practice >= 50 },
+  { id: 'style', ic: '🛍️', n: ['Estiloso', 'Stylish'], d: ['Compre seu primeiro item na loja', 'Buy your first shop item'], ok: () => boughtCount() >= 1 },
+  { id: 'ward10', ic: '👔', n: ['Guarda-roupa', 'Wardrobe'], d: ['Tenha 10 itens comprados', 'Own 10 bought items'], ok: () => boughtCount() >= 10 },
+  { id: 'ward25', ic: '🧥', n: ['Closet de TI', 'IT closet'], d: ['Tenha 25 itens comprados', 'Own 25 bought items'], ok: () => boughtCount() >= 25 },
+  { id: 'night', ic: '🦉', n: ['Plantão noturno', 'Night shift'], d: ['Complete uma lição entre 0h e 5h', 'Finish a lesson between midnight and 5 am'], ok: () => !!S.st.night },
+  { id: 'early', ic: '🌅', n: ['Primeiro turno', 'Early shift'], d: ['Complete uma lição entre 5h e 7h', 'Finish a lesson between 5 and 7 am'], ok: () => !!S.st.early }
 ];
-function checkAch() { for (const a of ACH) if (!S.ach[a.id] && a.ok()) { S.ach[a.id] = today(); setTimeout(() => { toast(a.ic + ' ' + u('achUnlocked') + ' ' + T(a.n)); sfx('quest'); }, 900); } }
+function boughtCount() { return A.ITEMS.filter(i => i.price > 0 && S.owned.includes(i.id)).length; }
+function checkAch() { for (const a of ACH) if (!S.ach[a.id] && a.ok()) { S.ach[a.id] = today(); addBytes(15); setTimeout(() => { toast(a.ic + ' ' + u('achUnlocked') + ' ' + T(a.n) + ' · 🪙+15'); sfx('quest'); }, 900); } }
 
 /* ---------- sound ---------- */
 let AC = null;
@@ -280,9 +328,10 @@ function render() {
       <button class="chip lang" data-act="lang" title="${u('language')}">${S.lang === 'pt' ? '🇧🇷 PT' : '🇺🇸 EN'}</button>
       <span class="chip ${st ? 'fire' : 'cold'}" title="${u('dayStreak')}">🔥 ${st}</span>
       <span class="chip xp" title="XP">⚡ ${S.xp}</span>
+      <button class="chip bytes" data-tab="avatar" title="Bytes">🪙 ${S.bytes}</button>
       <span class="chip goal" title="${u('dailyGoal')}">${ring(Math.min(1, xpToday() / S.goal), 22)} ${xpToday()}/${S.goal}</span>
     </header>
-    <main class="main" id="main">${tab === 'learn' ? viewLearn() : tab === 'practice' ? viewPractice() : tab === 'missions' ? viewMissions() : viewProfile()}</main>
+    <main class="main" id="main">${tab === 'learn' ? viewLearn() : tab === 'practice' ? viewPractice() : tab === 'missions' ? viewMissions() : tab === 'avatar' ? viewAvatar() : viewProfile()}</main>
     <aside class="rail">${railPanel()}</aside>
     <nav class="bottom">${navItems()}</nav>
   </div>`;
@@ -292,7 +341,7 @@ function render() {
     const cur = $('.node.current'); if (cur) setTimeout(() => cur.scrollIntoView({ block: 'center', behavior: 'smooth' }), 120);
   }
 }
-const NAV = [['learn', '🏠'], ['practice', '🏋️'], ['missions', '🎯'], ['profile', '👤']];
+const NAV = [['learn', '🏠'], ['practice', '🏋️'], ['missions', '🎯'], ['avatar', '🐶'], ['profile', '👤']];
 const navItems = () => NAV.map(([k, ic]) => `<button class="nav ${tab === k ? 'on' : ''}" data-tab="${k}"><span class="ic">${ic}</span><span class="lb">${u(k)}</span></button>`).join('');
 const logo = () => `<svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="var(--primary)"/><path d="M20 22h24M20 32h24M20 42h24" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".35"/><circle cx="20" cy="22" r="5" fill="#fff"/><circle cx="44" cy="32" r="5" fill="#fff"/><circle cx="20" cy="42" r="5" fill="#fff"/><path d="M20 22L44 32L20 42" stroke="#fff" stroke-width="4" fill="none" stroke-linejoin="round"/></svg>`;
 function ring(p, size) {
@@ -326,7 +375,7 @@ function viewLearn() {
       const off = (i % 2 ? 1 : -1) * [0, 52, 72, 40][k];
       const ic = k === LPU ? '🏆' : dn ? '✓' : av ? '★' : '🔒';
       html += `<div class="node-wrap" style="transform:translateX(${off}px)">
-        ${isCur ? `<div class="bubble">${u('start')}</div>` : ''}
+        ${isCur ? `<div class="bubble">${u('start')}</div><div class="path-dog ${off > 0 ? 'left' : 'right'}">${M.render(k === LPU ? 'think' : 'neutral', 120)}</div>` : ''}
         <button class="node ${k === LPU ? 'cp' : ''} ${dn ? 'done' : av ? 'avail' : 'lock'} ${isCur ? 'current' : ''}" data-node="${i}:${k}" aria-label="${k === LPU ? u('checkpoint') : u('lesson') + ' ' + (k + 1)}">${ic}</button>
       </div>`;
     }
@@ -381,6 +430,7 @@ function viewProfile() {
   const wd = S.lang === 'pt' ? ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'] : ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   const opt = (k, v, label) => `<button class="seg ${S[k] === v ? 'on' : ''}" data-set="${k}" data-val="${v}">${label}</button>`;
   return `<h2 class="page-title">${u('profile')}</h2>
+  <div class="card av-card">${A.render(S.av, { size: 92, mood: 'happy' })}<div class="grow"><b>${S.lang === 'pt' ? 'Seu avatar' : 'Your avatar'}</b><small>🪙 ${S.bytes} Bytes</small><button class="btn sm primary" data-tab="avatar">✏️ ${S.lang === 'pt' ? 'Personalizar' : 'Customize'}</button></div>${M.render('happy', 120)}</div>
   <div class="card lvl-card"><div class="lvl-badge">${lv}</div><div class="grow"><b>${u('playerLevel')} ${lv}</b>${bar((S.xp - lvlXp(lv)) / (lvlXp(lv + 1) - lvlXp(lv)))}<small>${S.xp} / ${lvlXp(lv + 1)} XP</small></div></div>
   <div class="stats">
     <div class="stat"><span>🔥</span><b>${curStreak()}</b><small>${u('dayStreak')}</small></div>
@@ -407,8 +457,63 @@ function viewProfile() {
   <p class="foot">NetTrail · ${UNITS.length} ${S.lang === 'pt' ? 'unidades' : 'units'} · ${Object.keys(QIDX).length} ${S.lang === 'pt' ? 'questões + geradas' : 'questions + generated'}</p>`;
 }
 
+/* ---------- avatar & loja ---------- */
+let avCat = 'look';
+const AV_CATS = [['look', '🎨', ['Visual', 'Look']], ['top', '👕', ['Roupas', 'Outfits']], ['hat', '🎩', ['Chapéus', 'Hats']], ['acc', '🕶️', ['Acessórios', 'Accessories']], ['hand', '🧰', ['Na mão', 'In hand']], ['bg', '🖼️', ['Fundos', 'Backgrounds']]];
+const itemOwned = it => (it.price === 0 && !it.ach) || S.owned.includes(it.id) || (it.ach && S.ach[it.ach]);
+const achName = id => { const a = ACH.find(x => x.id === id); return a ? a.ic + ' ' + T(a.n) : id; };
+function viewAvatar() {
+  const pt = S.lang === 'pt';
+  let body = '';
+  if (avCat === 'look') {
+    const idx = k => k === 'skin' || k === 'hairColor';
+    const sw = (k, vals, draw) => vals.map((v, i) => { const val = idx(k) ? i : v; return `<button class="look ${S.av[k] === val ? 'on' : ''}" data-look="${k}" data-v="${val}">${draw(v, i)}</button>`; }).join('');
+    body = `
+      <h4>${pt ? 'Tom de pele' : 'Skin tone'}</h4><div class="looks">${sw('skin', A.SKINS, c => `<span class="sw" style="background:${c}"></span>`)}</div>
+      <h4>${pt ? 'Cabelo' : 'Hair'}</h4><div class="looks">${sw('hair', A.HAIRS, h => A.render(Object.assign({}, S.av, { hair: h, hat: null, hand: null, acc: null }), { size: 64, noBg: true }))}</div>
+      <h4>${pt ? 'Cor do cabelo' : 'Hair color'}</h4><div class="looks">${sw('hairColor', A.HAIR_COLORS, c => `<span class="sw" style="background:${c}"></span>`)}</div>
+      <h4>${pt ? 'Olhos' : 'Eyes'}</h4><div class="looks">${sw('eyes', A.EYES, e => A.render(Object.assign({}, S.av, { eyes: e }), { size: 64, noBg: true }))}</div>
+      <h4>${pt ? 'Nome do mascote' : 'Mascot name'}</h4><div class="dog-name"><input id="dogName" maxlength="16" value="${esc(S.dogName)}"><button class="btn sm primary" id="saveDog">${pt ? 'Salvar' : 'Save'}</button></div>`;
+  } else {
+    const items = A.ITEMS.filter(i => i.cat === avCat);
+    const optional = ['hat', 'acc', 'hand'].includes(avCat);
+    const card = it => {
+      const owned = itemOwned(it), on = S.av[avCat] === it.id;
+      const status = on ? `<em class="ist on">✓ ${pt ? 'Usando' : 'Wearing'}</em>` : owned ? `<em class="ist own">${pt ? 'Usar' : 'Wear'}</em>` : it.ach ? `<em class="ist lock">🔒 ${esc(achName(it.ach))}</em>` : `<em class="ist price ${S.bytes >= it.price ? '' : 'short'}">🪙 ${it.price}</em>`;
+      return `<button class="item ${on ? 'on' : ''} ${owned ? '' : 'locked'}" data-item="${it.id}">${A.render(Object.assign({}, S.av, { [avCat]: it.id }), { size: 92, mood: 'happy' })}<b>${esc(T(it.n))}</b>${status}</button>`;
+    };
+    body = `<div class="items">${optional ? `<button class="item ${!S.av[avCat] ? 'on' : ''}" data-item="">${A.render(Object.assign({}, S.av, { [avCat]: null }), { size: 92 })}<b>${pt ? 'Nenhum' : 'None'}</b>${!S.av[avCat] ? `<em class="ist on">✓</em>` : '<em class="ist own">—</em>'}</button>` : ''}${items.map(card).join('')}</div>`;
+  }
+  return `<h2 class="page-title">${pt ? 'Avatar e loja' : 'Avatar & shop'}</h2>
+  <div class="av-top">
+    <div class="av-stage">${A.render(S.av, { size: 190, mood: 'happy' })}<div class="av-dog">${M.render('happy', 170)}<small>${esc(S.dogName)}</small></div></div>
+    <div class="av-bal"><div>🪙 <b>${S.bytes}</b> Bytes</div><small>${pt ? 'Ganhe Bytes: lição +5 (perfeita +10) · teste da unidade +15 · treino +3 · missão diária +5 · missão semanal +25 · conquista +15' : 'Earn Bytes: lesson +5 (perfect +10) · unit test +15 · practice +3 · daily quest +5 · weekly quest +25 · achievement +15'}</small></div>
+  </div>
+  <div class="av-tabs">${AV_CATS.map(([k, ic, n]) => `<button class="seg ${avCat === k ? 'on' : ''}" data-avcat="${k}">${ic} ${T(n)}</button>`).join('')}</div>
+  <div class="card av-body">${body}</div>`;
+}
+function bindAvatar() {
+  const pt = S.lang === 'pt';
+  $$('[data-avcat]').forEach(b => b.onclick = () => { avCat = b.dataset.avcat; render(); });
+  $$('[data-look]').forEach(b => b.onclick = () => { const k = b.dataset.look, v = b.dataset.v; S.av[k] = (k === 'skin' || k === 'hairColor') ? +v : v; save(); sfx('tap'); render(); });
+  const sd = $('#saveDog'); if (sd) sd.onclick = () => { const v = $('#dogName').value.trim(); if (v) { S.dogName = v; save(); toast('🐶 ' + v + '!'); render(); } };
+  $$('[data-item]').forEach(b => b.onclick = () => {
+    const id = b.dataset.item;
+    if (!id) { S.av[avCat] = null; save(); render(); return; }
+    const it = A.ITEMS.find(x => x.id === id);
+    if (itemOwned(it)) { S.av[it.cat] = (S.av[it.cat] === id && ['hat', 'acc', 'hand'].includes(it.cat)) ? null : id; save(); sfx('tap'); render(); return; }
+    if (it.ach) return toast(`🔒 ${pt ? 'Desbloqueie a conquista' : 'Unlock the achievement'} ${achName(it.ach)}`);
+    if (S.bytes < it.price) return toast(`🪙 ${pt ? 'Faltam' : 'You need'} ${it.price - S.bytes} Bytes`);
+    modal(`<div class="buy-prev">${A.render(Object.assign({}, S.av, { [it.cat]: it.id }), { size: 150, mood: 'celebrate' })}</div><h3>${esc(T(it.n))}</h3><p>${pt ? 'Comprar por' : 'Buy for'} 🪙 <b>${it.price}</b> Bytes? (${pt ? 'você tem' : 'you have'} ${S.bytes})</p>
+      <div class="mbtns"><button class="btn ghost" data-close>${u('cancel')}</button><button class="btn primary" id="buy">${pt ? 'Comprar' : 'Buy'}</button></div>`, m => {
+      $('#buy', m).onclick = () => { S.bytes -= it.price; S.owned.push(it.id); S.av[it.cat] = it.id; checkAch(); save(); closeModal(); sfx('quest'); toast('🛍️ ' + T(it.n)); render(); };
+    });
+  });
+}
+
 /* ---------- bindings ---------- */
 function bindMain() {
+  if (tab === 'avatar') bindAvatar();
   $$('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; if (tab === 'learn') scrolledOnce = false; render(); window.scrollTo(0, 0); });
   $$('[data-act="lang"]').forEach(b => b.onclick = () => { S.lang = S.lang === 'pt' ? 'en' : 'pt'; save(); render(); });
   $$('[data-sec]').forEach(b => b.onclick = () => { viewSec = +b.dataset.sec; render(); window.scrollTo(0, 0); });
@@ -485,12 +590,12 @@ function renderOnboarding() {
   const sel = renderOnboarding.sel || (renderOnboarding.sel = { sec: 1, goal: 50 });
   $('#app').innerHTML = `<div class="onb">
     <div class="onb-card">
-      <div class="onb-logo">${logo()}</div>
+      <div class="onb-mascot"><div class="speech">${S.lang === 'pt' ? `Oi! Eu sou o ${esc(S.dogName)}, seu parceiro de estudos. Bora aprender redes juntos?` : `Hi! I'm ${esc(S.dogName)}, your study buddy. Let's learn networking together!`}</div>${M.render('happy', 210)}</div>
       <h1>${u('welcome')}</h1><p class="sub">${u('welcomeSub')}</p>
       <h4>${u('chooseLang')}</h4>
       <div class="segs big"><button class="seg ${S.lang === 'pt' ? 'on' : ''}" data-l="pt">🇧🇷 Português</button><button class="seg ${S.lang === 'en' ? 'on' : ''}" data-l="en">🇺🇸 English</button></div>
       <h4>${u('chooseLevel')}</h4>
-      <div class="lvl-pick">${C.sections.map(s => `<button class="lvl-opt ${sel.sec === s.id ? 'on' : ''}" data-s="${s.id}" style="--c:${s.color}"><b>${['🌱', '🌿', '🌳'][s.id - 1]} ${T(s.name)}</b><small>${T(s.desc)}</small></button>`).join('')}</div>
+      <div class="lvl-pick">${C.sections.map(s => `<button class="lvl-opt ${sel.sec === s.id ? 'on' : ''}" data-s="${s.id}" style="--c:${s.color}"><b>${s.icon || '⭐'} ${T(s.name)}</b><small>${T(s.desc)}</small></button>`).join('')}</div>
       <h4>${u('chooseGoal')}</h4>
       <div class="segs big">${[[20, 'goalCasual'], [50, 'goalRegular'], [100, 'goalSerious']].map(([g, k]) => `<button class="seg ${sel.goal === g ? 'on' : ''}" data-g="${g}">${u(k)}<small>${g} XP</small></button>`).join('')}</div>
       <p class="note">${u('changeAnytime')}</p>
@@ -833,7 +938,7 @@ function check() {
   const first = !L.missed.has(q._k);
   S.st.ans++;
   if (ok) {
-    S.st.cor++; L.solved++; L.combo++; L.maxCombo = Math.max(L.maxCombo, L.combo);
+    S.st.cor++; L.solved++; L.combo++; L.maxCombo = Math.max(L.maxCombo, L.combo); S.st.bestCombo = Math.max(S.st.bestCombo || 0, L.combo);
     if (first) L.firstOk++;
     if (q.sub) S.st.subnet++;
     if (S.mistakes[q.id]) { S.mistakes[q.id]--; if (S.mistakes[q.id] <= 0) delete S.mistakes[q.id]; }
@@ -856,10 +961,10 @@ function check() {
   foot.classList.add(ok ? 'ok' : 'bad');
   const praise = UI.praise[S.lang === 'pt' ? 0 : 1];
   const showAns = !ok || (q.t === 'match' && L.cur.m.err > 0);
-  fb.innerHTML = `<div class="fb-t">${ok ? '✓ ' + praise[rnd(0, praise.length - 1)] : (q.t === 'match' ? '⚠ ' + (S.lang === 'pt' ? `Concluído com ${L.cur.m.err} erro(s)` : `Done with ${L.cur.m.err} mistake(s)`) : '✕ ' + u('wrong'))}</div>
+  fb.innerHTML = `<div class="fb-dog">${M.render(ok ? (L.combo >= 5 ? 'celebrate' : 'happy') : 'sad', 110)}</div><div class="fb-txt"><div class="fb-t">${ok ? '✓ ' + praise[rnd(0, praise.length - 1)] : (q.t === 'match' ? '⚠ ' + (S.lang === 'pt' ? `Concluído com ${L.cur.m.err} erro(s)` : `Done with ${L.cur.m.err} mistake(s)`) : '✕ ' + u('wrong'))}</div>
     ${showAns && q.t !== 'match' ? `<div class="fb-a"><b>${u('answer')}</b> ${esc(answerText(q))}</div>` : ''}
     ${q.e ? `<div class="fb-e">💡 ${esc(T(q.e))}</div>` : ''}
-    ${ok && L.combo >= 3 ? `<div class="fb-c">🔥 ${L.combo} ${u('combo2')}</div>` : ''}`;
+    ${ok && L.combo >= 3 ? `<div class="fb-c">🔥 ${L.combo} ${u('combo2')}</div>` : ''}</div>`;
   chk.style.visibility = 'visible'; chk.disabled = false; chk.textContent = u('continue');
   chk.className = 'btn big ' + (ok ? 'good' : 'badb');
   $('.lp i').style.width = Math.round(L.solved / L.total * 100) + '%';
@@ -883,20 +988,23 @@ function finish() {
   } else if (L.mode === 'practice') { xp = 5 + L.firstOk; S.st.practice++; quest('practice', 1); title = u('practiceDone'); }
   else if (L.mode === 'jump') {
     const pass = acc >= 80; xp = pass ? 20 : 5;
-    if (pass) { for (let j = 0; j < L.unit; j++) if (!S.unitDone[UNITS[j].id]) S.unitDone[UNITS[j].id] = 'skip'; if (!S.unlocked.includes(un.id)) S.unlocked.push(un.id); }
+    if (pass) { S.st.jumps = (S.st.jumps || 0) + 1; for (let j = 0; j < L.unit; j++) if (!S.unitDone[UNITS[j].id]) S.unitDone[UNITS[j].id] = 'skip'; if (!S.unlocked.includes(un.id)) S.unlocked.push(un.id); }
     title = pass ? '🎉 ' + u('jumpPass') : u('jumpFail');
   }
-  if (L.mode !== 'jump' || acc >= 80) { S.st.lessons++; if (perfect) { S.st.perfect++; quest('perfect', 1); } if (S.lang === 'en') S.st.en++; quest('lessons', 1); }
+  if (L.mode !== 'jump' || acc >= 80) { const hr = new Date().getHours(); if (hr < 5) S.st.night = 1; else if (hr < 7) S.st.early = 1; S.st.lessons++; if (perfect) { S.st.perfect++; quest('perfect', 1); } if (S.lang === 'en') S.st.en++; quest('lessons', 1); }
   // streak
   const d = today();
   if (S.last !== d) { S.streak = S.last && dayDiff(S.last, d) === 1 ? S.streak + 1 : 1; S.last = d; S.best = Math.max(S.best, S.streak); }
+  const passed = L.mode !== 'jump' || acc >= 80;
+  const by = L.mode === 'lesson' ? 5 + (perfect ? 5 : 0) : L.mode === 'checkpoint' ? 15 + (perfect ? 5 : 0) : L.mode === 'practice' ? 3 : passed ? 10 : 0;
+  addBytes(by);
   addXP(xp); prune(); checkAch(); save();
   sfx('done');
   const mm = Math.floor(secs / 60), ss = String(secs % 60).padStart(2, '0');
   $('#overlay').innerHTML = `<div class="lesson done-screen" style="--c:${L.color}">
     <div class="confetti">${Array.from({ length: 40 }, () => `<i style="left:${rnd(0, 100)}%;animation-delay:${Math.random() * .8}s;background:hsl(${rnd(0, 360)} 85% 60%)"></i>`).join('')}</div>
     <div class="done-in">
-      <div class="trophy">${L.mode === 'jump' && acc < 80 ? '💪' : perfect ? '💎' : '🎉'}</div>
+      <div class="done-chars">${A.render(S.av, { size: 130, mood: passed ? 'celebrate' : 'sad' })}${M.render(passed ? 'celebrate' : 'sad', 190)}</div>
       <h1>${title}</h1>
       ${perfect ? `<p class="perf">${S.lang === 'pt' ? 'Lição perfeita! +5 XP' : 'Perfect lesson! +5 XP'}</p>` : ''}
       <div class="done-stats">
@@ -905,6 +1013,7 @@ function finish() {
         <div class="ds blue"><small>${u('time')}</small><b>⏱ ${mm}:${ss}</b></div>
         <div class="ds orange"><small>${u('combo')}</small><b>🔥 ${L.maxCombo}</b></div>
       </div>
+      ${by ? `<div class="bytes-earned">🪙 +${by} Bytes</div>` : ''}
       <div class="streak-big">🔥 ${S.streak} ${u('dayStreak')}</div>
       <button class="btn primary big wide" id="fin">${u('continue')}</button>
     </div></div>`;
@@ -943,4 +1052,5 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && !L) { ensureQuests(); render(); } });
 render();
+if (welcomeBytes > 0 && S.onboarded) { save(); setTimeout(() => toast(`🪙 +${welcomeBytes} Bytes ${S.lang === 'pt' ? 'de boas-vindas pelo seu progresso! Visite a aba Avatar 🐶' : 'welcome bonus for your progress! Visit the Avatar tab 🐶'}`), 600); }
 })();

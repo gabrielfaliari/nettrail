@@ -9,12 +9,20 @@
    Para adicionar questões, basta seguir o mesmo formato. */
 window.NT_CONTENT = {
 sections: [
-  { id: 1, name: ["Iniciante", "Beginner"], color: "#0ea5a4",
+  { id: 1, icon: "🌱", name: ["Iniciante", "Beginner"], color: "#0ea5a4", ach: ["Técnico júnior", "Junior tech"], achIc: "🥉",
     desc: ["Primeiros passos: redes, cabos, rack, IP e troubleshooting básico.", "First steps: networks, cables, racks, IP and basic troubleshooting."] },
-  { id: 2, name: ["Intermediário", "Intermediate"], color: "#6366f1",
+  { id: 2, icon: "🌿", name: ["Intermediário", "Intermediate"], color: "#6366f1", ach: ["Técnico pleno", "Mid-level tech"], achIc: "🥈",
     desc: ["Modelo OSI, portas, fibra óptica, VLANs e subnetting.", "OSI model, ports, fiber optics, VLANs and subnetting."] },
-  { id: 3, name: ["Avançado", "Advanced"], color: "#f97316",
-    desc: ["Roteamento, Wi-Fi, troubleshooting avançado e operação de data center.", "Routing, Wi-Fi, advanced troubleshooting and data center operations."] }
+  { id: 3, icon: "🌳", name: ["Avançado", "Advanced"], color: "#f97316", ach: ["Técnico sênior", "Senior tech"], achIc: "🥇",
+    desc: ["Roteamento, Wi-Fi, troubleshooting avançado e operação de data center.", "Routing, Wi-Fi, advanced troubleshooting and data center operations."] },
+  { id: 4, icon: "🧑‍💻", name: ["Suporte de TI", "IT Support"], color: "#16a34a", ach: ["Especialista em suporte", "Support specialist"], achIc: "🎧",
+    desc: ["Hardware, Windows e linha de comando, help desk, segurança, virtualização e backup.", "Hardware, Windows and command line, help desk, security, virtualization and backup."] },
+  { id: 5, icon: "🏭", name: ["Data Center Pro", "Data Center Pro"], color: "#0369a1", ach: ["Mestre do data center", "Data center master"], achIc: "🏭",
+    desc: ["Energia, refrigeração, servidores e storage, procedimentos de segurança e fibra avançada.", "Power, cooling, servers and storage, safety procedures and advanced fiber."] },
+  { id: 6, icon: "🖧", name: ["Cisco na prática", "Cisco hands-on"], color: "#0891b2", ach: ["Configurador de redes", "Network configurator"], achIc: "🛠️",
+    desc: ["Comandos do IOS, switches, roteadores, ACLs, serviços e IPv6 (ótimo para treinar no Packet Tracer).", "IOS commands, switches, routers, ACLs, services and IPv6 (great to practice in Packet Tracer)."] },
+  { id: 7, icon: "☁️", name: ["Nuvem (OCI)", "Cloud (OCI)"], color: "#c2410c", ach: ["Nas nuvens", "Head in the cloud"], achIc: "☁️",
+    desc: ["Conceitos de nuvem e Oracle Cloud: regiões, rede, compute, storage e IAM.", "Cloud concepts and Oracle Cloud: regions, networking, compute, storage and IAM."] }
 ],
 units: [
 /* ===================== U1 ===================== */

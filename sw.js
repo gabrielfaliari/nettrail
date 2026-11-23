@@ -1,8 +1,8 @@
 /* Service worker: deixa o app funcionar offline.
    Estratégia: com internet, sempre busca a versão mais nova (rede primeiro);
    sem internet, usa a cópia guardada. Ao publicar uma atualização, aumente a versão abaixo. */
-const CACHE = 'nettrail-v5';
-const FILES = ['./', 'index.html', 'css/style.css', 'js/content.js', 'js/app.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CACHE = 'nettrail-v7';
+const FILES = ['./', 'index.html', 'css/style.css', 'js/content.js', 'js/content2.js', 'js/content3.js', 'js/avatar.js', 'js/app.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', e => {
   // cache: 'reload' ignora o cache HTTP do navegador, garantindo arquivos novos
